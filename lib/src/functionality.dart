@@ -1,61 +1,40 @@
-// import 'package:flutter/material.dart';
 import 'package:radar/src/dataPrasing.dart';
-import 'package:radar/src/socket.dart';
+import 'package:radar/src/socketControl.dart';
+import 'dart:io';
 
-String getVersion = '{"OpCode": "get_version", "Group": "host"}';
-String autoRecovery =
+const String getVersion = '{"OpCode": "get_version", "Group": "host"}';
+const String autoRecovery =
     '{"AutoRecovery": true, "OpCode": "open", "Group": "sensing", "SendNotification": false}';
-String changeMode =
+const String changeMode =
     '{"OpCode": "change_mode", "Group": "sensing", "Mode": "Search", "PreferredChannel": 9}';
-String readData =
+const String readData =
     '{"OpCode": "read_data", "Group": "sensing", "MaxSizeDwords": 524288}';
-// int delay=100;
+const int delayBetweenCommand = 50;
+const int delayBetweensampling = 250;
 
 class ConnectButton {
-  var simplseSoket = SimplseSoket();
+  var socket = SocketControl();
 
-  void connet() async {
-    // get Host manger version 1.5.0.6
-    var _hostMangerVer = RadarDataStructure(await getHostMangerVersion());
-    print("hostMangerVer");
-    print(_hostMangerVer.beginTimeStamp);
-    print(_hostMangerVer.hostVersion);
-    print(_hostMangerVer.opCode);
-    print("********************");
+  Future<void> connet() async {
+    await socket.connect();
 
-
-
-    // trigr Auto Recovery
-    // var _autoRecovery = RadarDataStructure(await triggerAutoRecovery());
-    // print("autoRecovery");
-    // print(_autoRecovery.beginTimeStamp);
-    // print(_autoRecovery.opCode);
-    // print("********************");
-
-
-    // // trigr Change mode - satrt sample
-    // var _changeMode = RadarDataStructure(await triggerChangeMode());
-    // print(_changeMode.beginTimeStamp);
-    
-    // var _readData = RadarDataStructurePulse(await triggerReadData());
-    // print(_readData.beginTimeStamp);
-    // print(_readData.beginTimeStamp);
-    // print(_readData.dataBase64);
+    print(
+        '${RadarDataStructure(await socket.writeAndWaitForReponse(getVersion)).endTimeStemp} Got version');
+    sleep(const Duration(milliseconds: delayBetweenCommand));
+    print(
+        '${RadarDataStructure(await socket.writeAndWaitForReponse(autoRecovery)).endTimeStemp} autoRecovery');
+    sleep(const Duration(milliseconds: delayBetweenCommand));
+    print(
+        '${RadarDataStructure(await socket.writeAndWaitForReponse(changeMode)).endTimeStemp} changeMode');
   }
 
-  Future<String> getHostMangerVersion() async {
-    return simplseSoket.connectAndSend(getVersion);
-  }
-
-  Future<String> triggerAutoRecovery() async {
-    return simplseSoket.connectAndSend(autoRecovery);
-  }
-
-  Future<String> triggerChangeMode() async{
-    return simplseSoket.connectAndSend(changeMode);
-  }
-
-  Future<String> triggerReadData() async{
-    return simplseSoket.connectAndSend(readData);
+  // chnage the dynamic to diffrent
+  Future<DataToPlot> stratRadar() async {
+    sleep(const Duration(milliseconds: delayBetweensampling));
+    Burst burst = RadarDataStructurePulse(await socket.writeAndWaitForReponse(readData)).burst;
+    DataToPlot dataToPlot = new DataToPlot();
+    dataToPlot.amplitude = burst.pulse.map<List<double>>((amp) => amp.amplitude).toList();
+    dataToPlot.phase = burst.pulse.map<List<double>>((pha) => pha.phase).toList();
+    return dataToPlot;
   }
 }
