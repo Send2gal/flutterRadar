@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:radar/src/counter.dart';
+// import 'package:radar/src/counter.dart';
 import 'package:radar/src/dataPrasing.dart';
 import 'package:radar/src/lineCharts.dart';
 import 'package:radar/src/functionality.dart';
@@ -11,7 +11,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Radar App',
-      theme: ThemeData(primarySwatch: Colors.green),
+      theme: ThemeData(primarySwatch: Colors.blue),
       home: MyHomePage(title: 'Radar  SI tool'),
     );
   }
@@ -26,26 +26,37 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  double _counter = 0;
+  // double _counter = 0;
   var _connectButton = ConnectButton();
+  bool stop = true;
 
-  List<List<double>> _plotList = [[],];
+  List<List<double>> _plotListAmplitude = [
+    [],
+  ];
+  List<List<double>> _plotListPhase = [
+    [],
+  ];
 
-  void connectToSocket() async {
+  void playStartRadar() async {
     DataToPlot _pulseList = new DataToPlot();
+    stop = false;
 
     try {
-      await _connectButton.connet();
-      _counter = 0;
-      for (int i = 0; i < 25; i++) {
-        _pulseList = await _connectButton.stratRadar();
-        _plotList = [];
-        setState(() {
-          _plotList = _pulseList.amplitude;
-          _counter = i.toDouble(); //_pulseList[0][0][0];
-          // _historyList.addAll(_pulseList[0]);
-        });
-        
+      await _connectButton.connect();
+      while (stop == false) {
+        await _connectButton.startSearch();
+        // _counter = 0;
+        _pulseList = await _connectButton.readData();
+        for (int i = 0; i < _pulseList.ns; i++) {
+          _plotListAmplitude = [];
+          _plotListPhase = [];
+          setState(() {
+            _plotListAmplitude = _pulseList.amplitude;
+            _plotListPhase = _pulseList.phase;
+            // _counter = i.toDouble(); //_pulseList[0][0][0];
+          });
+          _pulseList = await _connectButton.readData();
+        }
       }
     } catch (err) {
       print("hots manger not running");
@@ -72,31 +83,77 @@ class _MyHomePageState extends State<MyHomePage> {
     }
   }
 
+  void stopRadar() async {
+    stop = true;
+    try {
+      await _connectButton.stopRadar();
+    } catch (err) {
+      print(err.toString());
+    }
+  }
+
+  void restartStartRadar() async {
+    stopRadar();
+    setState(() {
+      _plotListAmplitude = [
+        [],
+      ];
+      _plotListPhase = [
+        [],
+      ];
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
         appBar: AppBar(
           title: Text(widget.title),
         ),
-        body: Center(
-            child:
-                Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Counter(counter: _counter),
-          Container(
-            height: 300,
-            child: SimpleLineChart(_plotList),
-          )
-        ])),
-        floatingActionButton: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            FloatingActionButton(
-              onPressed: connectToSocket,
-              tooltip: 'Connect',
-              child: Icon(Icons.play_arrow,),
-              
-            ),
-          ],
-        ));
+        body: new Container(
+            padding: EdgeInsets.all(20.0),
+            child: new Column(
+              children: <Widget>[
+                Expanded(
+                  child: ListView(
+                      shrinkWrap: true,
+                      scrollDirection: Axis.horizontal,
+                      children: <Widget>[
+                        Container(
+                          height: 200,
+                          width: 400,
+                          child: SimpleLineChart(_plotListAmplitude),
+                        ),
+                        Container(
+                          height: 200,
+                          width: 400,
+                          child: SimpleLineChart(_plotListPhase),
+                        ),
+                      ]),
+                ),
+                new Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: <Widget>[
+                    new FloatingActionButton(
+                      backgroundColor: Colors.green,
+                      onPressed: playStartRadar,
+                      child: new Icon(Icons.play_arrow),
+                    ),
+                    SizedBox(width: 20.0),
+                    new FloatingActionButton(
+                      backgroundColor: Colors.red,
+                      onPressed: stopRadar,
+                      child: new Icon(Icons.stop),
+                    ),
+                    SizedBox(width: 20.0),
+                    new FloatingActionButton(
+                      backgroundColor: Colors.blue,
+                      onPressed: restartStartRadar,
+                      child: new Icon(Icons.replay),
+                    ),
+                  ],
+                )
+              ],
+            )));
   }
 }

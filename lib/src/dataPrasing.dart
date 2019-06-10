@@ -118,26 +118,43 @@ class Puls {
   List<double> phase = [];
 
   Puls(List puls, this.ns) {
-    this.burstIndex = ((puls[0] << 8) | puls[1]);
-    this.pulseIndex = ((puls[2] << 8) | puls[3]);
+    this.burstIndex = ((puls[1] << 8) | puls[0]);
+    this.pulseIndex = ((puls[3] << 8) | puls[2]);
     parsingPulse(puls.skip(4).toList());
   }
 
+  int convertToSign(int n){
+    if (n < 32768) {
+      return n; 
+    }
+    else{
+      return n-65536;
+    }
+  }
+  
+
   void parsingPulse(List allIQ) {
     // Normalize;
-    double n = 65536;
+    double n = 65536.0;
 
     for (int j = 0; j < ns; j++) {
       List iq = allIQ.skip(4 * j).toList().take(4).toList();
-      int q = ((iq[1] << 8) | iq[0]);
-      int i = ((iq[3] << 8) | iq[2]);
+      int q = convertToSign((iq[3] << 8) | iq[2]);
+      int i = convertToSign((iq[1] << 8) | iq[0]);
 
-      double qDouble = i.toDouble() / n;
-      double iDouble = q.toDouble() / n;
+      double qDouble = q.toDouble() / n;
+      double iDouble = i.toDouble() / n;
+
+      // filter srong signal     
+      // if (iDouble >= 0.9) {iDouble=0.0001;}
+      // if (qDouble >= 0.9) {qDouble=0.0001;}
+
       double amp = 20 * (log(sqrt(pow(iDouble, 2) + pow(qDouble, 2)))/log(10));
-      double pha = atan2(i, q);
+      double pha = atan2(q, i)*(180.0 / pi);
       // debug print
       // print("i = ${iDouble}, q = ${qDouble}, amp = ${amp}, pha = ${pha}");
+      // print("i = ${i}, i(double) = ${iDouble}, i^2 = ${pow(iDouble, 2)}");
+      // print("q = ${q}, i(double) = ${qDouble}, i^2 = ${pow(qDouble, 2)}");
       this.amplitude.add(amp);
       this.phase.add(pha);
     }
@@ -147,5 +164,7 @@ class Puls {
 class DataToPlot {
   List<List<double>> amplitude;
   List<List<double>> phase;
+  int ns;
+  int np;
 }
 
